@@ -1,0 +1,83 @@
+name: Build CFST Manager
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Run core tests
+        run: swift run CFSTCoreTestRunner
+
+      - name: Build app executable
+        run: swift build --product CFSTManager
+
+  package:
+    name: Package Apple Silicon app
+    needs: test
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Cache CloudflareSpeedTest release
+        uses: actions/cache@v5
+        with:
+          path: .cache/cfst
+          key: cfst-v2.3.5-darwin-arm64
+
+      - name: Package app
+        run: CFST_MANAGER_FORCE_DOWNLOAD=1 CFST_DOWNLOAD_DIR="$PWD/.cache/cfst" Scripts/package_app.sh
+
+      - name: Zip app
+        run: ditto -c -k --keepParent "dist/CFST Manager.app" "dist/CFST-Manager-macOS-arm64.zip"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: CFST-Manager-macOS-arm64
+          path: dist/CFST-Manager-macOS-arm64.zip
+
+  release:
+    name: Publish release
+    if: startsWith(github.ref, 'refs/tags/v') && github.event_name != 'pull_request'
+    needs: test
+    runs-on: macos-14
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Cache CloudflareSpeedTest release
+        uses: actions/cache@v5
+        with:
+          path: .cache/cfst
+          key: cfst-v2.3.5-darwin-arm64
+
+      - name: Package app
+        run: CFST_MANAGER_FORCE_DOWNLOAD=1 CFST_DOWNLOAD_DIR="$PWD/.cache/cfst" Scripts/package_app.sh
+
+      - name: Zip app
+        run: ditto -c -k --keepParent "dist/CFST Manager.app" "dist/CFST-Manager-macOS-arm64.zip"
+
+      - name: Publish GitHub release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/CFST-Manager-macOS-arm64.zip
