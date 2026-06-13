@@ -84,14 +84,30 @@ jobs:
       - name: Publish upstream CFST release build
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: cfst-${{ needs.detect.outputs.cfst_version }}
-          name: CFST Manager with CloudflareSpeedTest ${{ needs.detect.outputs.cfst_version }}
-          body: |
-            Manual build using XIU2/CloudflareSpeedTest ${{ needs.detect.outputs.cfst_version }}.
+          GH_TOKEN: ${{ github.token }}
+          CFST_VERSION: ${{ needs.detect.outputs.cfst_version }}
+          ASSET_NAME: ${{ needs.detect.outputs.asset_name }}
+          CFST_SHA256: ${{ needs.detect.outputs.sha256 }}
+          ZIP_PATH: ${{ steps.zip.outputs.zip_path }}
+        run: |
+          tag_name="cfst-$CFST_VERSION"
+          release_name="CFST Manager with CloudflareSpeedTest $CFST_VERSION"
+          notes_file="$(mktemp)"
+          {
+            printf 'Manual build using XIU2/CloudflareSpeedTest %s.\n\n' "$CFST_VERSION"
+            printf 'Upstream asset: %s\n' "$ASSET_NAME"
+            printf 'SHA-256: %s\n' "$CFST_SHA256"
+          } > "$notes_file"
 
-            Upstream asset: ${{ needs.detect.outputs.asset_name }}
-            SHA-256: ${{ needs.detect.outputs.sha256 }}
-          files: ${{ steps.zip.outputs.zip_path }}
-          make_latest: false
+          if gh release view "$tag_name" >/dev/null 2>&1; then
+            gh release edit "$tag_name" \
+              --title "$release_name" \
+              --notes-file "$notes_file" \
+              --latest=false
+            gh release upload "$tag_name" "$ZIP_PATH" --clobber
+          else
+            gh release create "$tag_name" "$ZIP_PATH" \
+              --title "$release_name" \
+              --notes-file "$notes_file" \
+              --latest=false
+          fi

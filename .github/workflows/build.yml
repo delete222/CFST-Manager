@@ -79,6 +79,18 @@ jobs:
       - name: Publish GitHub release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        uses: softprops/action-gh-release@v2
-        with:
-          files: dist/CFST-Manager-macOS-arm64.zip
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          notes_file="$(mktemp)"
+          printf 'CFST Manager Apple Silicon build.\n' > "$notes_file"
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release edit "$GITHUB_REF_NAME" \
+              --title "CFST Manager $GITHUB_REF_NAME" \
+              --notes-file "$notes_file"
+            gh release upload "$GITHUB_REF_NAME" "dist/CFST-Manager-macOS-arm64.zip" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              "dist/CFST-Manager-macOS-arm64.zip" \
+              --title "CFST Manager $GITHUB_REF_NAME" \
+              --notes-file "$notes_file"
+          fi
