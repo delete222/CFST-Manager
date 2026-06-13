@@ -221,8 +221,7 @@ LOCAL_CFST_ARM64_DIR=~/Downloads/cfst_darwin_arm64 Scripts/package_app.sh
 1. 先运行 `Scripts/check_cfst_release.sh` 拿到最新版本和 SHA-256。
 2. 更新 `Scripts/package_app.sh` 的默认 `CFST_VERSION`。
 3. 更新 `Scripts/package_app.sh` 的默认 SHA-256。
-4. 更新 `.github/workflows/build.yml` 的 cache key。
-5. 本地和 GitHub Actions 都跑一次。
+4. 本地和 GitHub Actions 的 `Watch CloudflareSpeedTest` 都跑一次。
 
 ## Review 要求
 
