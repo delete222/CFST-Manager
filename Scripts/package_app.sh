@@ -95,7 +95,16 @@ download_asset() {
   local extract_dir="$DIST_DIR/${asset%.zip}"
   rm -rf "$extract_dir"
   mkdir -p "$extract_dir"
-  unzip -q "$zip_path" -d "$extract_dir"
+
+  if ! unzip -q -j "$zip_path" cfst -d "$extract_dir" 2>/dev/null \
+    && ! unzip -q -j "$zip_path" CloudflareST -d "$extract_dir" 2>/dev/null; then
+    echo "Could not extract cfst/CloudflareST binary from $asset" >&2
+    return 1
+  fi
+  unzip -q -j "$zip_path" ip.txt -d "$extract_dir"
+  unzip -q -j "$zip_path" ipv6.txt -d "$extract_dir"
+  unzip -q -j "$zip_path" LICENSE -d "$extract_dir" 2>/dev/null || true
+  unzip -q -j "$zip_path" README.md -d "$extract_dir" 2>/dev/null || true
   echo "$extract_dir"
 }
 
@@ -184,7 +193,6 @@ cp "$ARM_DIR/ip.txt" "$RESOURCES_DIR/ip.txt"
 cp "$ARM_DIR/ipv6.txt" "$RESOURCES_DIR/ipv6.txt"
 copy_optional_text_file "$ARM_DIR" LICENSE
 copy_optional_text_file "$ARM_DIR" README.md
-copy_optional_text_file "$ARM_DIR" "使用+错误+反馈说明.txt"
 
 if [[ ! -f "$RESOURCES_DIR/LICENSE" ]]; then
   cat > "$RESOURCES_DIR/LICENSE" <<LICENSE
