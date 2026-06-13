@@ -1,0 +1,97 @@
+name: Watch CloudflareSpeedTest
+
+on:
+  workflow_dispatch:
+    inputs:
+      force_package:
+        description: "Even if the upstream version did not change, package the latest upstream release."
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  detect:
+    name: Detect upstream release
+    runs-on: ubuntu-latest
+    outputs:
+      current_version: ${{ steps.cfst.outputs.current_version }}
+      cfst_version: ${{ steps.cfst.outputs.cfst_version }}
+      asset_name: ${{ steps.cfst.outputs.asset_name }}
+      sha256: ${{ steps.cfst.outputs.sha256 }}
+      update_available: ${{ steps.cfst.outputs.update_available }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Check latest CloudflareSpeedTest release
+        id: cfst
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          CFST_FORCE_PACKAGE: ${{ github.event_name == 'workflow_dispatch' && inputs.force_package || 'false' }}
+        run: Scripts/check_cfst_release.sh
+
+      - name: Summary
+        env:
+          CURRENT_VERSION: ${{ steps.cfst.outputs.current_version }}
+          CFST_VERSION: ${{ steps.cfst.outputs.cfst_version }}
+          UPDATE_AVAILABLE: ${{ steps.cfst.outputs.update_available }}
+          ASSET_NAME: ${{ steps.cfst.outputs.asset_name }}
+        run: |
+          {
+            printf 'Current bundled CFST: %s\n' "$CURRENT_VERSION"
+            printf 'Latest upstream CFST: %s\n' "$CFST_VERSION"
+            printf 'Update available: %s\n' "$UPDATE_AVAILABLE"
+            printf 'Asset: %s\n' "$ASSET_NAME"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  package:
+    name: Release latest upstream app
+    needs: detect
+    if: needs.detect.outputs.update_available == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_package)
+    runs-on: macos-14
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Package app with latest upstream CFST
+        env:
+          CFST_VERSION: ${{ needs.detect.outputs.cfst_version }}
+          CFST_ARM64_ASSETS: ${{ needs.detect.outputs.asset_name }}
+          CFST_ARM64_SHA256: ${{ needs.detect.outputs.sha256 }}
+          CFST_MANAGER_FORCE_DOWNLOAD: "1"
+          CFST_DOWNLOAD_DIR: ${{ runner.temp }}/cfst
+        run: Scripts/package_app.sh
+
+      - name: Zip app
+        id: zip
+        env:
+          CFST_VERSION: ${{ needs.detect.outputs.cfst_version }}
+        run: |
+          safe_version="$(printf '%s' "$CFST_VERSION" | tr -cd 'A-Za-z0-9._-')"
+          if [ -z "$safe_version" ]; then
+            echo "Could not derive a safe version string" >&2
+            exit 1
+          fi
+          zip_path="dist/CFST-Manager-macOS-arm64-cfst-${safe_version}.zip"
+          ditto -c -k --keepParent "dist/CFST Manager.app" "$zip_path"
+          echo "zip_path=$zip_path" >> "$GITHUB_OUTPUT"
+
+      - name: Publish upstream CFST release build
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: cfst-${{ needs.detect.outputs.cfst_version }}
+          name: CFST Manager with CloudflareSpeedTest ${{ needs.detect.outputs.cfst_version }}
+          body: |
+            Manual build using XIU2/CloudflareSpeedTest ${{ needs.detect.outputs.cfst_version }}.
+
+            Upstream asset: ${{ needs.detect.outputs.asset_name }}
+            SHA-256: ${{ needs.detect.outputs.sha256 }}
+          files: ${{ steps.zip.outputs.zip_path }}
+          make_latest: false

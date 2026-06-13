@@ -164,6 +164,23 @@ dist/CFST Manager.app
 - `LOCAL_CFST_ARM64_DIR`：本地 CloudflareSpeedTest 解压目录。
 - `CFST_MANAGER_FORCE_DOWNLOAD=1`：忽略默认本地目录，强制下载。
 - `CFST_DOWNLOAD_DIR`：下载 zip 的缓存目录，CI 用 `.cache/cfst`。
+- `CFST_VERSION`：覆盖要打包的上游 CloudflareSpeedTest release tag。
+- `CFST_ARM64_ASSETS`：覆盖 arm64 release asset 名称，多个候选用逗号分隔。
+- `CFST_ARM64_SHA256`：覆盖 arm64 release zip 的 SHA-256。
+
+### `Scripts/check_cfst_release.sh`
+
+查询 XIU2/CloudflareSpeedTest 最新 release，并输出 GitHub Actions 可读的 key/value：
+
+- `current_version`
+- `latest_version`
+- `cfst_version`
+- `asset_name`
+- `sha256`
+- `update_available`
+
+`.github/workflows/watch-cfst-upstream.yml` 用它来判断上游是否更新；该 workflow
+只手动运行，并把产物发布到 GitHub Release。
 
 ## 测试
 
@@ -201,10 +218,11 @@ LOCAL_CFST_ARM64_DIR=~/Downloads/cfst_darwin_arm64 Scripts/package_app.sh
 
 ### 改打包版本
 
-1. 更新 `Scripts/package_app.sh` 的 `CFST_VERSION`。
-2. 更新 release zip 的 SHA-256。
-3. 更新 `.github/workflows/build.yml` 的 cache key。
-4. 本地和 GitHub Actions 都跑一次。
+1. 先运行 `Scripts/check_cfst_release.sh` 拿到最新版本和 SHA-256。
+2. 更新 `Scripts/package_app.sh` 的默认 `CFST_VERSION`。
+3. 更新 `Scripts/package_app.sh` 的默认 SHA-256。
+4. 更新 `.github/workflows/build.yml` 的 cache key。
+5. 本地和 GitHub Actions 都跑一次。
 
 ## Review 要求
 

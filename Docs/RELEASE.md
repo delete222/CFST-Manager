@@ -58,7 +58,7 @@ https://github.com/XIU2/CloudflareSpeedTest/releases/download/v2.3.5/cfst_darwin
 CI 使用 `actions/cache` 缓存：
 
 ```text
-.cache/cfst
+.cache/cfst/<CloudflareSpeedTest 版本>
 ```
 
 cache key：
@@ -67,11 +67,46 @@ cache key：
 cfst-v2.3.5-darwin-arm64
 ```
 
-所以同一个 CloudflareSpeedTest 版本通常只下载一次。以后升级上游版本时，要同时更新：
+所以同一个 CloudflareSpeedTest 版本通常只下载一次。`Scripts/package_app.sh`
+支持用环境变量覆盖上游版本和校验值：
 
-1. `Scripts/package_app.sh` 里的 `CFST_VERSION`
-2. `Scripts/package_app.sh` 里的 SHA-256
+```sh
+CFST_VERSION=v2.3.5
+CFST_ARM64_ASSETS=cfst_darwin_arm64.zip
+CFST_ARM64_SHA256=0623f6d24c939e3d3716f556f4d39c7b8781cf6600ee838a1b64e6b2fe4609dc
+```
+
+固定升级默认内置版本时，再更新：
+
+1. `Scripts/package_app.sh` 里的默认 `CFST_VERSION`
+2. `Scripts/package_app.sh` 里的默认 SHA-256
 3. `.github/workflows/build.yml` 里的 cache key
+
+## 手动检查上游 CFST
+
+`.github/workflows/watch-cfst-upstream.yml` 只支持手动运行，避免定时任务消耗
+Actions 免费分钟数和 artifact/cache 存储。
+
+它会执行：
+
+```sh
+Scripts/check_cfst_release.sh
+```
+
+脚本会：
+
+1. 调用 GitHub API 查询 `XIU2/CloudflareSpeedTest` 最新 release。
+2. 比较最新 tag 和 `Scripts/package_app.sh` 当前默认 `CFST_VERSION`。
+3. 如果发现新版本，下载 arm64 release zip 并计算 SHA-256。
+4. 用最新版本、asset 名和 SHA-256 调用 `Scripts/package_app.sh`。
+5. 发布到 GitHub Release：
+
+```text
+cfst-<上游版本>
+```
+
+如果只是想验证打包链路，可以在 Actions 页面手动运行 `Watch CloudflareSpeedTest`，
+并勾选 `force_package`。
 
 ## 手动触发一次打包
 
@@ -107,6 +142,9 @@ gh run download <run-id> --repo delete222/CFST-Manager --dir ./Artifacts
 ```text
 Artifacts/CFST-Manager-macOS-arm64/CFST-Manager-macOS-arm64.zip
 ```
+
+普通 push 产生的 artifact 设置为保留 7 天，避免长期占用 Actions artifact 存储。
+长期可下载产物应放在 GitHub Release。
 
 ## 发布正式版本
 

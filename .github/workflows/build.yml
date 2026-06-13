@@ -51,6 +51,7 @@ jobs:
         with:
           name: CFST-Manager-macOS-arm64
           path: dist/CFST-Manager-macOS-arm64.zip
+          retention-days: 7
 
   release:
     name: Publish release

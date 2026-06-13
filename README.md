@@ -28,10 +28,18 @@ GitHub Actions 会在每次 push 到 `main` 时自动：
 3. 下载并缓存 CloudflareSpeedTest release 包。
 4. 打包 `CFST-Manager-macOS-arm64.zip` artifact。
 
+普通 push 产生的 artifact 只保留 7 天；长期下载使用 GitHub Release。
+
 Actions 页面：
 https://github.com/delete222/CFST-Manager/actions
 
 如果推送 `v*` tag，例如 `v0.1.0`，Actions 会创建 GitHub Release 并上传 zip。
+
+另外，`.github/workflows/watch-cfst-upstream.yml` 可以手动检查
+XIU2/CloudflareSpeedTest 的最新 release。如果上游版本高于当前内置版本，
+它会用最新 arm64 release 包打包，并发布到 GitHub Release。为了节省 Actions
+免费额度，它不会每天自动运行。也可以在 Actions 页面手动运行
+`Watch CloudflareSpeedTest`，并勾选 `force_package` 来强制发布当前最新上游版本。
 
 ## 本地开发
 
@@ -48,6 +56,16 @@ LOCAL_CFST_ARM64_DIR=~/Downloads/cfst_darwin_arm64 Scripts/package_app.sh
 
 如果没有本地目录，脚本会从 GitHub release 下载 `cfst_darwin_arm64.zip` 并校验 SHA-256。
 
+也可以显式指定上游版本和校验值：
+
+```sh
+CFST_VERSION=v2.3.5 \
+CFST_ARM64_ASSETS=cfst_darwin_arm64.zip \
+CFST_ARM64_SHA256=0623f6d24c939e3d3716f556f4d39c7b8781cf6600ee838a1b64e6b2fe4609dc \
+CFST_MANAGER_FORCE_DOWNLOAD=1 \
+Scripts/package_app.sh
+```
+
 CI 环境会设置：
 
 ```sh
@@ -56,6 +74,7 @@ CFST_DOWNLOAD_DIR="$PWD/.cache/cfst"
 ```
 
 这样 CloudflareSpeedTest 包会从 GitHub 下载一次，之后由 `actions/cache` 缓存，不需要每次重新下载。
+脚本会在下载目录下按 CloudflareSpeedTest 版本再分一层目录，避免不同上游版本的同名 zip 互相污染。
 
 ## 仓库结构
 
